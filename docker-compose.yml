@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  tts-service:
+    build: .          # 使用当前目录的 Dockerfile 构建镜像
+    container_name: local-tts-proxy
+    ports:
+      - "6911:6911"   # 将主机的 3000 端口映射到容器的 3000 端口
+    env_file:
+      - .env          # 从 .env 文件加载环境变量 (API_KEY, PORT)
+    restart: unless-stopped
