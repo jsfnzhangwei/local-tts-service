@@ -16,6 +16,7 @@ COPY . .
 
 # 暴露应用监听的端口 (与 .env 文件或 server.js 中的 PORT 一致)
 EXPOSE 6911
-
+# 增加 --max-http-header-size 参数
+CMD [ "node", "--max-http-header-size=65536", "server.js" ]
 # 定义容器启动时运行的命令
 CMD [ "node", "server.js" ]

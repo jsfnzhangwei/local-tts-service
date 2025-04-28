@@ -1,0 +1,201 @@
+/* ==========================
+   基本重置与默认样式
+   ========================== */
+* {
+    margin: 0; padding: 0; box-sizing: border-box;
+}
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+    line-height: 1.6; background-color: #f4f7f6; color: #333; display: flex; flex-direction: column; min-height: 100vh; padding: 1rem;
+}
+
+/* ==========================
+   页头 Header
+   ========================== */
+header { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0 1rem 0; border-bottom: 1px solid #ddd; margin-bottom: 1.5rem; flex-wrap: wrap; }
+header h1 { color: #2c3e50; font-size: 1.8rem; margin-right: 1rem; }
+.manage-section { display: flex; align-items: center; gap: 1rem; }
+.status-indicator { width: 15px; height: 15px; border-radius: 50%; display: inline-block; background-color: #ccc; border: 1px solid #aaa; transition: background-color 0.3s ease; }
+.status-indicator.loading { background-color: #ffcc00; border-color: #cc9900; }
+.status-indicator.healthy { background-color: #4CAF50; border-color: #388E3C; }
+.status-indicator.unhealthy { background-color: #f44336; border-color: #d32f2f; }
+#manage-api-btn { padding: 0.5rem 1rem; background-color: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 0.9rem; transition: background-color 0.2s ease; }
+#manage-api-btn:hover { background-color: #2980b9; }
+
+/* ==========================
+   主要内容区域 Main
+   ========================== */
+main { flex-grow: 1; max-width: 800px; width: 100%; margin: 0 auto; }
+#translate-form { display: flex; flex-direction: column; gap: 1.5rem; }
+.textarea-container { position: relative; }
+.textarea-container label { display: block; margin-bottom: 0.5rem; font-weight: bold; color: #555; }
+.clear-btn { position: absolute; top: 30px; right: 8px; background: none; border: none; font-size: 1.5rem; color: #aaa; cursor: pointer; padding: 0 5px; line-height: 1; transition: color 0.2s ease; z-index: 10; }
+.clear-btn:hover { color: #555; }
+textarea { width: 100%; padding: 0.8rem; padding-right: 35px; border: 1px solid #ccc; border-radius: 5px; font-size: 1rem; line-height: 1.5; resize: vertical; font-family: inherit; }
+textarea:focus { outline: none; border-color: #3498db; box-shadow: 0 0 5px rgba(52, 152, 219, 0.5); }
+#output-text { background-color: #e9ecef; }
+.language-selector { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; }
+.select-group { flex: 1; min-width: 150px; }
+.select-group label { display: block; margin-bottom: 0.5rem; font-weight: bold; color: #555; }
+select { width: 100%; padding: 0.6rem; border: 1px solid #ccc; border-radius: 5px; background-color: white; font-size: 0.95rem; cursor: pointer; }
+.swap-btn { padding: 0.3rem 0.6rem; font-size: 1.2rem; line-height: 1; background-color: #f0f0f0; border: 1px solid #ccc; border-radius: 5px; cursor: pointer; color: #555; transition: background-color 0.2s ease, color 0.2s ease; align-self: center; margin-top: 1.5rem; }
+.swap-btn:hover { background-color: #e0e0e0; color: #333; }
+#translate-btn { padding: 0.8rem 1.5rem; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 1.1rem; transition: background-color 0.2s ease, opacity 0.2s ease; }
+#translate-btn:hover { background-color: #45a049; }
+#translate-btn:disabled { background-color: #cccccc; cursor: not-allowed; opacity: 0.7; }
+
+/* ==========================
+   输出区域下方控制区
+   ========================== */
+.output-area { /* Wrapper for output textarea and controls below */ }
+.output-controls-footer { margin-top: 1rem; display: flex; flex-direction: column; gap: 0.5rem; }
+
+/* 音频控制条容器 */
+.audio-controls-container {
+    display: flex; flex-wrap: wrap; /* 允许换行 */
+    justify-content: space-between; /* 两端对齐 */
+    align-items: center; gap: 10px; padding: 5px 0; border-radius: 5px;
+}
+
+/* 朗读按钮和进度条容器 */
+.speak-controls {
+    display: flex; flex-wrap: nowrap; /* 内部不换行 */
+    align-items: center; gap: 10px;
+    /* flex-grow: 1; */ /* 移除 flex-grow，让它根据内容自适应宽度 */
+    /* min-width: 200px; */ /* 移除 min-width */
+}
+
+/* 朗读/暂停按钮 */
+.speak-btn {
+    background-color: #8e44ad; color: white; border: none; padding: 0.3rem 0.8rem;
+    font-size: 0.9rem; border-radius: 4px; cursor: pointer;
+    transition: background-color 0.2s ease, opacity 0.2s ease;
+    min-width: 80px; text-align: center; flex-shrink: 0;
+}
+.speak-btn:hover { background-color: #732d91; }
+.speak-btn:disabled { background-color: #cccccc; cursor: not-allowed; opacity: 0.7; }
+.speak-btn[textContent="生成中..."] { font-style: italic; }
+
+/* 进度条容器 */
+.progress-bar-container {
+    display: none; /* JS控制显示 */
+    align-items: center; padding: 0; border-radius: 15px;
+    flex-grow: 1; /* 占据 speak-controls 内的剩余空间 */
+    min-width: 150px; /* 保持最小宽度 */
+}
+
+/* 进度条滑块样式 */
+#audio-progress-bar {
+    flex-grow: 1; height: 8px; cursor: pointer; -webkit-appearance: none; appearance: none;
+    background: #ddd; border-radius: 4px; outline: none; margin: 0 5px;
+}
+#audio-progress-bar::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; background: #8e44ad; border-radius: 50%; cursor: pointer; }
+#audio-progress-bar::-moz-range-thumb { width: 14px; height: 14px; background: #8e44ad; border-radius: 50%; cursor: pointer; border: none; }
+#audio-progress-bar::-moz-range-progress { background-color: #a569bd; height: 8px; border-radius: 4px; }
+
+/* 时间显示 */
+.audio-time-display { font-size: 0.8rem; color: #555; min-width: 75px; text-align: right; flex-shrink: 0; }
+
+/* 右侧操作按钮容器 */
+.output-actions { display: flex; align-items: center; gap: 8px; position: relative; flex-shrink: 0; }
+
+/* 下载按钮样式 */
+.download-btn { background-color: #27ae60; color: white; border: none; padding: 0.3rem 0.8rem; font-size: 0.9rem; border-radius: 4px; cursor: pointer; transition: background-color 0.2s ease, opacity 0.2s ease; }
+.download-btn:hover { background-color: #229954; }
+.download-btn:disabled { background-color: #cccccc; cursor: not-allowed; opacity: 0.7; }
+
+/* 复制按钮样式 */
+.copy-btn { background-color: #f0f0f0; border: 1px solid #ccc; color: #555; padding: 0.3rem 0.8rem; font-size: 0.9rem; border-radius: 4px; cursor: pointer; transition: background-color 0.2s ease, color 0.2s ease; }
+.copy-btn:hover { background-color: #e0e0e0; color: #333; }
+
+/* 复制成功提示 */
+.copy-success-msg { font-size: 0.8rem; color: #4CAF50; padding: 0.1rem 0.4rem; border-radius: 3px; opacity: 0; transition: opacity 0.5s ease-in-out; pointer-events: none; margin-right: 5px; position: absolute; right: 100%; top: 50%; transform: translateY(-50%); white-space: nowrap; }
+.copy-success-msg.show { opacity: 1; }
+
+/* 错误消息区域 */
+.error-message { color: #f44336; font-size: 0.9rem; min-height: 1.2em; width: 100%; }
+
+/* ==========================
+   页脚 Footer
+   ========================== */
+footer { text-align: center; margin-top: 2rem; padding: 1rem 0; border-top: 1px solid #ddd; color: #777; font-size: 0.9rem; }
+
+/* ==========================
+   API 管理弹窗 Modal
+   ========================== */
+.modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0, 0, 0, 0.5); animation: fadeIn 0.3s ease-out; }
+.modal-content { background-color: #fefefe; margin: 10% auto; padding: 25px; border: 1px solid #888; width: 80%; max-width: 550px; border-radius: 8px; position: relative; box-shadow: 0 4px 8px rgba(0,0,0,0.2); animation: slideIn 0.3s ease-out; }
+.close-btn { color: #aaa; position: absolute; top: 10px; right: 20px; font-size: 28px; font-weight: bold; cursor: pointer; }
+.close-btn:hover, .close-btn:focus { color: black; text-decoration: none; }
+.modal-content h2 { margin-bottom: 1.5rem; text-align: center; color: #2c3e50; }
+.modal-content label { display: block; margin-bottom: 0.5rem; margin-top: 1rem; font-weight: bold; color: #555; }
+.modal-content label:first-of-type { margin-top: 0; }
+.modal-content input[type="url"], .modal-content input[type="text"], .modal-content select#tts-voice-select { width: 100%; padding: 0.8rem; margin-bottom: 1rem; border: 1px solid #ccc; border-radius: 5px; font-size: 1rem; }
+.modal-content select#tts-voice-select { background-color: white; cursor: pointer; font-size: 0.95rem; }
+.modal-content input:focus, .modal-content select#tts-voice-select:focus { outline: none; border-color: #3498db; box-shadow: 0 0 5px rgba(52, 152, 219, 0.5); }
+.modal-content fieldset { border: 1px solid #ddd; padding: 15px 20px; margin-bottom: 20px; border-radius: 5px; }
+.modal-content legend { font-size: 1.1rem; font-weight: bold; color: #3498db; padding: 0 8px; width: auto; margin-bottom: 1rem; border-bottom: none; }
+.slider-container { margin-top: 1rem; margin-bottom: 0.5rem; }
+.slider-container label { display: block; margin-bottom: 0.3rem; font-size: 0.95rem; color: #555; }
+.slider-container input[type="range"] { width: 100%; height: 8px; cursor: pointer; margin-top: 0.2rem; }
+.slider-value { font-weight: bold; color: #3498db; margin-left: 5px; }
+#save-settings-btn { background-color: #4CAF50; color: white; padding: 0.8rem 1.5rem; border: none; border-radius: 5px; cursor: pointer; font-size: 1rem; width: 100%; margin-top: 0.5rem; transition: background-color 0.2s ease; }
+#save-settings-btn:hover { background-color: #45a049; }
+.modal-status { margin-top: 1rem; font-size: 0.9rem; text-align: center; min-height: 1.2em; }
+.modal-status.success { color: #4CAF50; }
+.modal-status.error { color: #f44336; }
+
+/* ==========================
+   动画效果 Animations
+   ========================== */
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideIn { from { transform: translateY(-30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+/* ==========================
+   响应式设计 Responsive Design
+   ========================== */
+@media (max-width: 600px) {
+    body { padding: 0.5rem; }
+    header h1 { font-size: 1.5rem; }
+    textarea { padding: 0.7rem; padding-right: 35px; }
+    .language-selector { flex-direction: column; align-items: stretch; }
+    .select-group { width: 100%; min-width: unset; }
+    .swap-btn { align-self: center; margin-top: 0.5rem; margin-bottom: 0.5rem; order: 1; }
+
+    /* 控制条在小屏幕上的布局调整 */
+    .audio-controls-container {
+        /* 保持 flex-wrap: wrap; */
+        /* 移除 column 方向，恢复 row (默认) */
+        /* flex-direction: column; */
+        /* align-items: stretch; */
+        justify-content: space-between; /* 或 flex-start */
+        align-items: center; /* 垂直居中 */
+    }
+    .speak-controls {
+        /* 移除 width: 100%; */
+        /* width: 100%; */
+        /* justify-content: flex-start; */ /* 改回默认 */
+        flex-wrap: nowrap; /* 内部不换行 */
+        margin-bottom: 0; /* 移除与下方按钮的间距 */
+        /* 给予一定的 flex 基础，但允许压缩 */
+        flex-basis: auto;
+        flex-grow: 0; /* 不主动伸展 */
+    }
+    .progress-bar-container {
+         /* 小屏幕下可以适当减小进度条的最小宽度 */
+         min-width: 100px;
+    }
+    .output-actions {
+        /* 移除 width: 100%; */
+        /* width: 100%; */
+        justify-content: flex-end; /* 按钮组靠右 */
+        margin-top: 0; /* 移除与上方区域的间距 */
+    }
+    .copy-success-msg {
+         /* 小屏下的位置可能需要微调，或者保持原样 */
+        right: 100%; left: auto; bottom: auto; top: 50%; transform: translateY(-50%);
+    }
+
+    .clear-btn { top: 28px; right: 5px; font-size: 1.3rem; }
+    .modal-content { width: 90%; margin: 15% auto; padding: 20px; }
+}

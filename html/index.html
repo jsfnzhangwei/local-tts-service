@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="在线语言翻译与文本转语音工具，使用自定义 API。">
+    <meta name="theme-color" content="#4CAF50"/>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icons/icon-192x192.png">
+
+    <title>自定义 API 翻译与语音合成</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+</head>
+<body>
+    <header>
+        <h1>翻译与语音合成</h1>
+        <div class="manage-section">
+            <span id="health-status" class="status-indicator loading" title="正在检查翻译API状态..."></span>
+            <button id="manage-api-btn" title="管理 API 设置">管理</button>
+        </div>
+    </header>
+
+    <main>
+        <form id="translate-form">
+            <div class="textarea-container input-container">
+                <label for="input-text">输入文本:</label>
+                <textarea id="input-text" rows="6" placeholder="在此输入要翻译的文本..."></textarea>
+                <button type="button" id="clear-input-btn" class="clear-btn" title="清除输入内容">&times;</button>
+            </div>
+
+            <div class="language-selector">
+                <div class="select-group">
+                    <label for="source-lang">源语言:</label>
+                    <select id="source-lang">
+                        <option value="en">英语 (English)</option>
+                        <option value="ja">日语 (日本語)</option>
+                        <option value="zh">汉语 (普通话)</option>
+                        <option value="ko">韩语 (한국어)</option>
+                    </select>
+                </div>
+                <button type="button" id="swap-languages-btn" class="swap-btn" title="交换源语言和目标语言">⇄</button>
+                <div class="select-group">
+                    <label for="target-lang">目标语言:</label>
+                    <select id="target-lang">
+                        <option value="en">英语 (English)</option>
+                        <option value="zh" selected>汉语 (普通话)</option>
+                    </select>
+                </div>
+            </div>
+
+            <button type="submit" id="translate-btn">翻译</button>
+
+            <div class="output-area">
+                <div class="textarea-container output-container">
+                    <label for="output-text">翻译结果:</label>
+                    <textarea id="output-text" rows="6" readonly placeholder="翻译结果将显示在这里..."></textarea>
+                </div>
+
+                <div class="output-controls-footer">
+                    <div class="audio-controls-container">
+                        <div id="speak-controls" class="speak-controls">
+                            <button type="button" id="speak-output-btn" class="speak-btn" title="朗读翻译结果">朗读</button>
+                            <div id="progress-bar-container" class="progress-bar-container" style="display: none;">
+                                <input type="range" id="audio-progress-bar" value="0" step="0.1" title="音频进度">
+                                <span id="audio-time-display" class="audio-time-display">0:00 / 0:00</span>
+                            </div>
+                        </div>
+                        <div class="output-actions">
+                            <button type="button" id="download-audio-btn" class="download-btn" title="下载合成语音" style="display: none;">下载</button>
+                            <button type="button" id="copy-output-btn" class="copy-btn" title="复制翻译结果">复制</button>
+                            <span id="copy-success-msg" class="copy-success-msg"></span>
+                        </div>
+                    </div>
+                    <div id="error-message" class="error-message"></div>
+                    <div id="tts-error-message" class="error-message"></div>
+                    <audio id="audio-player" style="display: none;"></audio>
+                </div>
+            </div>
+        </form>
+    </main>
+
+    <footer>
+        <p>翻译 API 版本: <span id="api-version">N/A</span></p>
+    </footer>
+
+    <div id="manage-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" id="close-modal-btn">&times;</span>
+            <h2>API 设置</h2>
+            <fieldset>
+                 <legend>翻译 API</legend>
+                 <label for="api-url-input">翻译 API 基地址:</label>
+                 <input type="url" id="api-url-input" placeholder="http://example.com:8080">
+
+                 <label for="api-token-input">翻译 API 授权 Token:</label>
+                 <input type="text" id="api-token-input" placeholder="请输入翻译 API 令牌">
+            </fieldset>
+
+            <fieldset>
+                 <legend>语音合成 (TTS) API</legend>
+                 <label for="tts-api-url-input">语音 API 地址:</label>
+                 <input type="url" id="tts-api-url-input" placeholder="例如: https://tts.example.workers.dev/tts">
+
+                 <label for="tts-api-key-input">语音 API Key (x-api-key):</label>
+                 <input type="text" id="tts-api-key-input" placeholder="请输入语音 API Key">
+
+                 <label for="tts-voice-select">选择音色:</label>
+                 <select id="tts-voice-select">
+                     </select>
+
+                 <div class="slider-container">
+                    <label for="tts-rate-slider">语速: <span class="slider-value" id="tts-rate-value">0</span></label>
+                    <input type="range" id="tts-rate-slider" min="-100" max="100" value="0">
+                 </div>
+
+                 <div class="slider-container">
+                     <label for="tts-pitch-slider">语调: <span class="slider-value" id="tts-pitch-value">0</span></label>
+                     <input type="range" id="tts-pitch-slider" min="-100" max="100" value="0">
+                 </div>
+
+            </fieldset>
+
+            <button id="save-settings-btn">保存</button>
+            <div id="modal-status" class="modal-status"></div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
