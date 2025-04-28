@@ -1,0 +1,51 @@
+# .github/workflows/docker-publish.yml
+
+name: Docker 构建与推送 # Workflow 的名称
+
+# 控制 Workflow 的触发时机
+on:
+  push:
+    branches: [ "main" ] # 当代码推送到 main 分支时触发
+  # 允许你从 Actions 标签页手动运行此 Workflow
+  workflow_dispatch:
+
+jobs:
+  build_and_push: # 定义一个名为 build_and_push 的 job
+    runs-on: ubuntu-latest # 使用最新的 Ubuntu 运行环境
+
+    steps: # job 中的步骤
+      # 1. 检出仓库代码
+      - name: 检出仓库代码
+        uses: actions/checkout@v4 # 使用 actions/checkout@v4 或检查最新版本
+
+      # 2. 设置 QEMU (推荐用于多平台构建，如果只构建单平台则可选)
+      - name: 设置 QEMU
+        uses: docker/setup-qemu-action@v3 # 使用 docker/setup-qemu-action@v3 或检查最新版本
+
+      # 3. 设置 Docker Buildx (提供更高级的构建功能)
+      - name: 设置 Docker Buildx
+        uses: docker/setup-buildx-action@v3 # 使用 docker/setup-buildx-action@v3 或检查最新版本
+
+      # 4. 使用 Secrets 登录 Docker Hub
+      - name: 登录 Docker Hub
+        uses: docker/login-action@v3 # 使用 docker/login-action@v3 或检查最新版本
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }} # 使用之前设置的 Secret
+          password: ${{ secrets.DOCKERHUB_TOKEN }}  # 使用之前设置的 Secret
+
+      # 5. 构建并推送 Docker 镜像
+      - name: 构建并推送 Docker 镜像
+        uses: docker/build-push-action@v5 # 使用 docker/build-push-action@v5 或检查最新版本
+        with:
+          context: . # 使用当前目录作为构建上下文
+          file: ./Dockerfile # 指定 Dockerfile 的路径
+          push: true # 构建后推送到 Docker Hub
+          tags: | # 为镜像应用的标签 (Tags)
+            ${{ secrets.DOCKERHUB_USERNAME }}/local-tts-service:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/local-tts-service:${{ github.sha }}
+          # 可选：如果需要，添加构建参数
+          # build-args: |
+          #   arg1=value1
+          #   arg2=value2
+          # 可选：如果进行多架构构建，指定平台
+          # platforms: linux/amd64,linux/arm64
