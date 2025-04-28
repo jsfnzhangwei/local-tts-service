@@ -11,10 +11,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "cors": "^2.8.5",        // 处理 CORS
-    "dotenv": "^16.3.1",     // 加载 .env 文件
-    "express": "^4.18.2"     // Node.js Web 框架
-    // node-fetch v3+ is ESM only, if needed for older Node or specific fetch features.
-    // Modern Node has global fetch.
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2"
   }
 }
