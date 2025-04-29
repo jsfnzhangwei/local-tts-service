@@ -1,3 +1,6 @@
+/**
+ * script.js - 翻译与语音合成前端逻辑
+ */
 document.addEventListener('DOMContentLoaded', () => {
     // --- DOM 元素获取 ---
     const inputText = document.getElementById('input-text');
@@ -260,8 +263,74 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /**
      * 复制输出文本框的内容。
+     * 检查 navigator.clipboard 是否可用，如果不可用则回退。
      */
-    function copyOutput() { const text = outputText.value; if (!text || text === '正在加载...') { showCopyMessage("没有可复制的内容", true); return; } navigator.clipboard.writeText(text) .then(() => showCopyMessage("已复制!", false)) .catch(err => { console.error('Copy failed:', err); showCopyMessage("复制失败", true); }); }
+    function copyOutput() {
+        const text = outputText.value;
+        if (!text || text === '正在加载...') {
+            showCopyMessage("没有可复制的内容", true);
+            return;
+        }
+
+        // 检查 Clipboard API 是否可用且在安全上下文中
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(text)
+                .then(() => {
+                    showCopyMessage("已复制!", false);
+                })
+                .catch(err => {
+                    console.error('Clipboard API copy failed:', err);
+                    // 如果 Clipboard API 失败（可能由于权限或其他原因），尝试回退
+                    fallbackCopyText(text);
+                });
+        } else {
+            // 如果 Clipboard API 不可用（非 HTTPS/localhost 或旧浏览器），使用回退方法
+            console.warn('Clipboard API not available or context is insecure. Using fallback.');
+            fallbackCopyText(text);
+        }
+    }
+
+    /**
+     * 使用 document.execCommand 的回退复制方法。
+     * @param {string} text - 要复制的文本。
+     */
+    function fallbackCopyText(text) {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+
+        // --- 样式设置，防止影响页面布局和滚动 ---
+        textArea.style.position = 'fixed'; // 固定定位，脱离文档流
+        textArea.style.top = '-9999px';    // 移到屏幕外
+        textArea.style.left = '-9999px';   // 移到屏幕外
+        textArea.style.width = '2em';      // 足够小即可
+        textArea.style.height = '2em';
+        textArea.style.padding = '0';
+        textArea.style.border = 'none';
+        textArea.style.outline = 'none';
+        textArea.style.boxShadow = 'none';
+        textArea.style.background = 'transparent';
+        // --- 样式设置结束 ---
+
+        document.body.appendChild(textArea);
+        textArea.focus(); // 需要获取焦点才能选中
+        textArea.select(); // 选中 textarea 中的内容
+
+        try {
+            const successful = document.execCommand('copy'); // 执行复制命令
+            if (successful) {
+                showCopyMessage("已复制! (Fallback)", false);
+            } else {
+                console.error('Fallback copy command failed');
+                showCopyMessage("复制失败 (Fallback)", true);
+            }
+        } catch (err) {
+            console.error('Fallback copy error:', err);
+            showCopyMessage("复制失败 (Fallback)", true);
+        }
+
+        document.body.removeChild(textArea); // 移除临时 textarea
+    }
+
 
      /**
      * 显示复制成功/失败的提示信息。
@@ -397,7 +466,7 @@ document.addEventListener('DOMContentLoaded', () => {
     saveSettingsBtn.addEventListener('click', () => { if (saveSettings()) { setTimeout(() => { manageModal.style.display = 'none'; checkApiHealth(); getApiVersion(); clearErrorMessage(); resetAudioState(); }, 1000); }});
     swapLanguagesBtn.addEventListener('click', swapLanguages);
     clearInputBtn.addEventListener('click', clearInput);
-    copyOutputBtn.addEventListener('click', copyOutput);
+    copyOutputBtn.addEventListener('click', copyOutput); // copyOutput 函数已修改
     speakOutputBtn.addEventListener('click', handleSpeakButtonClick);
     downloadAudioBtn.addEventListener('click', downloadAudio);
 
@@ -428,26 +497,50 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 进度条拖动 ---
     audioProgressBar.addEventListener('input', () => { if (audioPlayer.readyState >= 1 && !isNaN(audioPlayer.duration) && audioPlayer.duration > 0) { audioTimeDisplay.textContent = `${formatTime(audioProgressBar.value)} / ${formatTime(audioPlayer.duration)}`; } });
     audioProgressBar.addEventListener('mousedown', (e) => { if (audioPlayer.readyState >= 1 && !isNaN(audioPlayer.duration) && audioPlayer.duration > 0) { isDraggingProgressBar = true; wasPlayingBeforeDrag = !audioPlayer.paused; if (wasPlayingBeforeDrag) { audioPlayer.pause(); } console.log(`Drag start. Was playing: ${wasPlayingBeforeDrag}`); } else { e.preventDefault(); } });
-    audioProgressBar.addEventListener('mouseup', () => {
-         if (isDraggingProgressBar) {
-             console.log("Progress bar mouseup.");
+    // --- 修复: 原来的 mouseup 逻辑在某些浏览器下可能导致无法重新播放 ---
+    // 改用 'change' 事件结合 mouseup/touchend 清理标记
+    const endDrag = () => {
+        if (isDraggingProgressBar) {
+             console.log("Drag end.");
              const seekTime = parseFloat(audioProgressBar.value);
              if (!isNaN(seekTime) && audioPlayer.readyState >= 1) {
                  console.log(`Seeking audio to: ${seekTime}`);
                  audioPlayer.currentTime = seekTime;
              }
+             // 只有在拖动前是播放状态时，才尝试在拖动结束后恢复播放
+             if (wasPlayingBeforeDrag) {
+                 console.log("Attempting to play after drag end.");
+                 // 短暂延迟可能有助于确保 seek 完成
+                 setTimeout(() => {
+                     audioPlayer.play().catch(e => {
+                         console.error("Play after seek failed:", e);
+                         showErrorMessage("无法从该位置播放。", true);
+                         speakOutputBtn.disabled = false;
+                         speakOutputBtn.textContent = '朗读';
+                     });
+                 }, 50); // 50ms 延迟
+             }
              isDraggingProgressBar = false; // 清除拖动标记
-
-             console.log("Attempting to play after mouseup/seek.");
-             requestAnimationFrame(() => { // 使用 RAF 确保 seek 生效
-                 audioPlayer.play().catch(e => {
-                     console.error("Play after seek failed:", e);
-                     showErrorMessage("无法从该位置播放。", true);
-                     speakOutputBtn.disabled = false;
-                     speakOutputBtn.textContent = '朗读';
-                 });
-             });
+             wasPlayingBeforeDrag = false; // 重置状态
          }
-     });
+    };
+    audioProgressBar.addEventListener('mouseup', endDrag);
+    audioProgressBar.addEventListener('touchend', endDrag); // 触摸设备支持
+
+    // 也可以在 change 事件处理 seek，但 mouseup/touchend 更好用于恢复播放状态
+    audioProgressBar.addEventListener('change', () => {
+        if (!isDraggingProgressBar && audioPlayer.readyState >= 1) { // 确保不是拖动中途触发的 change
+            const seekTime = parseFloat(audioProgressBar.value);
+            if (!isNaN(seekTime)) {
+                console.log(`Seek via 'change' event to: ${seekTime}`);
+                audioPlayer.currentTime = seekTime;
+                // 通常 change 后不需要自动播放，用户可能只是点击了进度条
+                if(audioPlayer.paused) {
+                   audioTimeDisplay.textContent = `${formatTime(seekTime)} / ${formatTime(audioPlayer.duration)}`;
+                }
+            }
+        }
+    });
+
 
 }); // DOMContentLoaded 结束

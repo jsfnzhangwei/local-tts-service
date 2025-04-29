@@ -29,7 +29,7 @@ main { flex-grow: 1; max-width: 800px; width: 100%; margin: 0 auto; }
 #translate-form { display: flex; flex-direction: column; gap: 1.5rem; }
 .textarea-container { position: relative; }
 .textarea-container label { display: block; margin-bottom: 0.5rem; font-weight: bold; color: #555; }
-.clear-btn { position: absolute; top: 30px; right: 8px; background: none; border: none; font-size: 1.5rem; color: #aaa; cursor: pointer; padding: 0 5px; line-height: 1; transition: color 0.2s ease; z-index: 10; }
+.clear-btn { position: absolute; top: 15px; right: 0px; background: none; border: none; font-size: 1.5rem; color: #aaa; cursor: pointer; padding: 0 5px; line-height: 1; transition: color 0.2s ease; z-index: 10; }
 .clear-btn:hover { color: #555; }
 textarea { width: 100%; padding: 0.8rem; padding-right: 35px; border: 1px solid #ccc; border-radius: 5px; font-size: 1rem; line-height: 1.5; resize: vertical; font-family: inherit; }
 textarea:focus { outline: none; border-color: #3498db; box-shadow: 0 0 5px rgba(52, 152, 219, 0.5); }
@@ -196,6 +196,6 @@ footer { text-align: center; margin-top: 2rem; padding: 1rem 0; border-top: 1px 
         right: 100%; left: auto; bottom: auto; top: 50%; transform: translateY(-50%);
     }
 
-    .clear-btn { top: 28px; right: 5px; font-size: 1.3rem; }
+    .clear-btn { top: 15px; right: 0px; font-size: 1.3rem; }
     .modal-content { width: 90%; margin: 15% auto; padding: 20px; }
 }
