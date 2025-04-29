@@ -6,25 +6,34 @@ const path = require('path'); // 引入 path 模块
 
 const app = express();
 const PORT = process.env.PORT || 6911;
-const API_KEY = process.env.API_KEY; // 从环境变量获取 API Key
+
+// --- 从环境变量读取配置 ---
+const API_KEY = process.env.API_KEY; // 这是访问 /tts, /voices 的 API Key
+const DEFAULT_TRANSLATE_API_URL = process.env.TRANSLATE_API_URL || '';
+const DEFAULT_TRANSLATE_API_TOKEN = process.env.TRANSLATE_API_TOKEN || '';
+const DEFAULT_TTS_API_URL = process.env.TTS_API_URL || '';
+const DEFAULT_TTS_API_KEY = process.env.TTS_API_KEY || ''; // 这是前端调用 TTS API 的 Key
 
 if (!API_KEY) {
-    console.error("错误：环境变量 API_KEY 未设置。请在 .env 文件或系统中设置它。");
-    process.exit(1); // 退出程序
+    console.error("错误：环境变量 API_KEY (用于服务访问) 未设置。");
+    // process.exit(1); // 生产环境可以考虑退出，开发环境可能允许无密钥访问特定路由
 }
+// 对前端可能需要的默认值也进行日志记录（但不强制退出）
+console.log(`默认翻译URL: ${DEFAULT_TRANSLATE_API_URL ? '已设置' : '未设置'}`);
+console.log(`默认TTS URL: ${DEFAULT_TTS_API_URL ? '已设置' : '未设置'}`);
+console.log(`默认TTS Key: ${DEFAULT_TTS_API_KEY ? '已设置' : '未设置'}`);
+
 
 // --- 全局变量和缓存 ---
 const encoder = new TextEncoder();
 let expiredAt = null;
 let endpoint = null;
 let clientId = "76a75279-2ffa-4c3d-8db8-7b47252aa41c";
-
-// 内存缓存，用于 voiceList
 let voiceListCache = null;
 let voiceListCacheTime = 0;
 const VOICE_LIST_CACHE_TTL = 600 * 1000; // 10 分钟 (毫秒)
 
-// --- 工具函数 (大部分与 worker.js 相同，但 crypto 使用 Node.js 版本) ---
+// --- 工具函数 ---
 
 function uuid() {
     return webcrypto.randomUUID().replace(/-/g, "");
@@ -104,7 +113,8 @@ function getSsml(text, voiceName, rate, pitch) {
          </speak>`;
 }
 
-// --- Express 中间件和路由 ---
+
+// --- Express 中间件 ---
 
 // CORS 配置
 app.use(cors({
@@ -117,11 +127,16 @@ app.use(cors({
 
 // *** 添加静态文件服务中间件 ***
 // 这会让 Express 查找并提供 /app/html (在容器内) 下的文件
-// 访问 http://localhost:6911/ 会尝试加载 html/index.html
+// 访问 http://localhost:3000/ 会尝试加载 html/index.html
 app.use(express.static(path.join(__dirname, 'html')));
 
-// API Key 验证中间件
+// API Key 验证中间件 (用于 /tts, /voices)
 const verifyApiKey = (req, res, next) => {
+    // 如果未设置 API_KEY 环境变量，则允许所有请求通过（仅用于开发/测试！）
+    if (!API_KEY) {
+        console.warn("警告：API_KEY 未设置，允许未经授权的访问 /tts 和 /voices");
+        return next();
+    }
     const apiKey = req.headers['x-api-key'];
     if (!apiKey || apiKey !== API_KEY) {
         return res.status(401).type('text/plain').send('Unauthorized');
@@ -129,38 +144,77 @@ const verifyApiKey = (req, res, next) => {
     next();
 };
 
-// 应用 API Key 验证到需要保护的 API 路由
-app.use(['/tts', '/voices'], verifyApiKey);
-
 // --- API 路由处理 ---
 
-// 获取语音列表路由 (GET)
-app.get('/voices', async (req, res) => {
+// *** 新增：获取默认配置的 API 端点 ***
+// 这个端点不需要 API Key 验证
+app.get('/api/config', (req, res) => {
+    res.json({
+        translateApiUrl: DEFAULT_TRANSLATE_API_URL,
+        translateApiToken: DEFAULT_TRANSLATE_API_TOKEN, // 注意：在前端直接暴露 Token 可能有安全风险，取决于你的 Token 用途
+        ttsApiUrl: DEFAULT_TTS_API_URL,
+        ttsApiKey: DEFAULT_TTS_API_KEY
+    });
+});
+
+// --- 受保护的 API 路由 ---
+
+// 获取语音列表路由 (GET) - 应用 API Key 验证
+app.get('/voices', verifyApiKey, async (req, res) => {
     const l = (req.query.l || "").toLowerCase();
     const f = req.query.f;
 
     try {
         let responseData;
         const now = Date.now();
+
+        // 检查缓存
         if (voiceListCache && (now - voiceListCacheTime < VOICE_LIST_CACHE_TTL)) {
             console.log("使用缓存的 voice list");
             responseData = voiceListCache;
         } else {
             console.log("重新获取 voice list");
-            const headers = { /* ... headers ... */ }; // 省略具体 headers
-             const listResponse = await fetch("https://eastus.api.speech.microsoft.com/cognitiveservices/voices/list", { headers: headers });
-             if (!listResponse.ok) throw new Error(`获取 Voice List 失败: ${listResponse.status} ${listResponse.statusText}`);
-             responseData = await listResponse.json();
-             voiceListCache = responseData;
-             voiceListCacheTime = now;
+            const headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36 Edg/107.0.1418.26",
+                "X-Ms-Useragent": "SpeechStudio/2021.05.001",
+                "Content-Type": "application/json",
+                "Origin": "https://azure.microsoft.com",
+                "Referer": "https://azure.microsoft.com"
+            };
+            const listResponse = await fetch("https://eastus.api.speech.microsoft.com/cognitiveservices/voices/list", { headers: headers });
+            if (!listResponse.ok) {
+                throw new Error(`获取 Voice List 失败: ${listResponse.status} ${listResponse.statusText}`);
+            }
+            responseData = await listResponse.json();
+            // 更新缓存
+            voiceListCache = responseData;
+            voiceListCacheTime = now;
         }
 
+
+        // 过滤
         if (l.length > 0) {
-             responseData = responseData.filter(item => item.Locale.toLowerCase().includes(l));
+            responseData = responseData.filter(item => item.Locale.toLowerCase().includes(l));
         }
 
+        // 格式化
         if (f === "0") {
-            const formattedList = responseData.map(item => `...`); // 省略格式化逻辑
+             const formattedList = responseData.map(item => {
+                return `
+- !!org.nobody.multitts.tts.speaker.Speaker
+  avatar: ''
+  code: ${item.ShortName}
+  desc: ''
+  extendUI: ''
+  gender:${item.Gender === "Female" ? "0" : "1"}
+  name: ${item.LocalName}
+  note: 'wpm: ${item.WordsPerMinute || ""}'
+  param: ''
+  sampleRate: ${item.SampleRateHertz || "24000"}
+  speed: 1.5
+  type: 1
+  volume: 1`;
+             });
             return res.type('text/plain').send(formattedList.join("\n"));
         } else if (f === "1") {
             const map = new Map(responseData.map(item => [item.ShortName, item.LocalName]));
@@ -174,9 +228,8 @@ app.get('/voices', async (req, res) => {
     }
 });
 
-// 文本转语音路由 (GET)
-// *** 注意：此 GET 方法在文本 ('t' 参数) 过长时，仍可能触发 431 错误 ***
-app.get('/tts', async (req, res) => {
+// 文本转语音路由 (GET) - 应用 API Key 验证
+app.get('/tts', verifyApiKey, async (req, res) => {
     // 从查询参数获取
     const text = req.query.t || "";
     const voiceName = req.query.v || "zh-CN-XiaoxiaoMultilingualNeural";
@@ -192,15 +245,15 @@ app.get('/tts', async (req, res) => {
     try {
         // 检查/刷新 Azure 认证令牌
         if (!expiredAt || Date.now() / 1000 > expiredAt - 60) {
-            console.log("正在刷新 Azure endpoint 和 token...");
+             console.log("正在刷新 Azure endpoint 和 token...");
             endpoint = await getEndpoint();
             const jwt = endpoint.t.split(".")[1];
             const decodedJwt = JSON.parse(atob(jwt));
             expiredAt = decodedJwt.exp;
-            clientId = uuid();
-            console.log("Endpoint 和 Token 已刷新, 剩余有效时间: " + ((expiredAt - Date.now() / 1000) / 60).toFixed(2) + " 分钟");
+            clientId = uuid(); // 更新 clientId
+             console.log("Endpoint 和 Token 已刷新, 剩余有效时间: " + ((expiredAt - Date.now() / 1000) / 60).toFixed(2) + " 分钟");
         } else {
-            console.log("使用现有 Token, 剩余有效时间: " + ((expiredAt - Date.now() / 1000) / 60).toFixed(2) + " 分钟");
+             console.log("使用现有 Token, 剩余有效时间: " + ((expiredAt - Date.now() / 1000) / 60).toFixed(2) + " 分钟");
         }
 
         const url = `https://${endpoint.r}.tts.speech.microsoft.com/cognitiveservices/v1`;
@@ -222,22 +275,24 @@ app.get('/tts', async (req, res) => {
         if (!azureResponse.ok) {
             const errorBody = await azureResponse.text();
             console.error(`Azure TTS 请求失败: ${azureResponse.status} ${azureResponse.statusText}`, errorBody);
+            // 尝试将 Azure 的错误信息传递给客户端
             return res.status(azureResponse.status).type(azureResponse.headers.get('content-type') || 'text/plain').send(errorBody || azureResponse.statusText);
         }
 
         // 设置响应头
         res.setHeader('Content-Type', azureResponse.headers.get('content-type') || 'audio/mpeg');
         if (download) {
-            const filename = `${uuid()}.mp3`;
+            const filename = `${uuid()}.mp3`; // 假设是 mp3，可以根据 outputFormat 调整
             res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
         }
 
         // 流式传输音频数据
         if (azureResponse.body && typeof azureResponse.body.pipe === 'function') {
-            azureResponse.body.pipe(res);
+             azureResponse.body.pipe(res);
         } else {
-            const buffer = await azureResponse.arrayBuffer();
-            res.send(Buffer.from(buffer));
+             // Fallback for older Node or different stream types if needed
+             const buffer = await azureResponse.arrayBuffer();
+             res.send(Buffer.from(buffer));
         }
 
     } catch (error) {
@@ -251,5 +306,5 @@ app.get('/tts', async (req, res) => {
 app.listen(PORT, () => {
     console.log(`服务器运行在 http://localhost:${PORT}`);
     console.log(`前端文件服务于根目录 /`);
-    console.log(`API Key: ${API_KEY ? '已设置' : '未设置!'}`);
+    console.log(`服务访问 API Key: ${API_KEY ? '已设置' : '未设置! (警告: /tts, /voices 无保护)'}`);
 });
